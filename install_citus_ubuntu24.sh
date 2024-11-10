@@ -1,15 +1,17 @@
 #!/bin/bash
 
-# Prompt and validate server type (coordinator or worker)
-prompt_server_type() {
-    while true; do
-        read -p "Is this server a coordinator (c) or worker (w)? " server_type
-        if [[ "$server_type" == "c" || "$server_type" == "w" ]]; then
-            break
-        else
-            echo "Invalid input. Please enter 'c' for coordinator or 'w' for worker."
-        fi
-    done
+# Ensure server_type is set
+ensure_server_type() {
+    if [[ -z "$server_type" ]]; then
+        while true; do
+            read -p "Is this server a coordinator (c) or worker (w)? " server_type
+            if [[ "$server_type" == "c" || "$server_type" == "w" ]]; then
+                break
+            else
+                echo "Invalid input. Please enter 'c' for coordinator or 'w' for worker."
+            fi
+        done
+    fi
 }
 
 # Update package lists
@@ -54,6 +56,7 @@ install_citus_extension() {
 
 # Configure PostgreSQL to preload the Citus extension, set listen_addresses, and update pg_hba.conf
 configure_postgresql() {
+    ensure_server_type
     echo "Configuring PostgreSQL to load Citus extension and set listen addresses..."
     sudo sed -i "s/^#shared_preload_libraries = ''/shared_preload_libraries = 'citus'/" /etc/postgresql/16/main/postgresql.conf
     sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/16/main/postgresql.conf
@@ -72,6 +75,7 @@ configure_postgresql() {
 
 # Create Citus extension in PostgreSQL if this is a coordinator node
 create_citus_extension() {
+    ensure_server_type
     if [[ "$server_type" == "c" ]]; then
         echo "Creating Citus extension on the coordinator..."
         sudo -i -u postgres psql -c "CREATE EXTENSION citus;"
@@ -80,6 +84,7 @@ create_citus_extension() {
 
 # Add worker nodes to the Citus cluster on the coordinator
 add_citus_nodes() {
+    ensure_server_type
     if [[ "$server_type" == "c" ]]; then
         read -p "Enter the number of worker nodes to add: " num_nodes
 
@@ -96,7 +101,6 @@ add_citus_nodes() {
 
 # Execute all functions in sequence
 main() {
-    prompt_server_type
     update_packages
     install_postgresql
     add_citus_repository
