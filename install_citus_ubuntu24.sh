@@ -14,16 +14,24 @@ install_postgresql() {
 
 # Add Citus repository with a fixed release name (jammy)
 add_citus_repository() {
-    echo "Adding Citus repository with jammy as the release name..."
-    echo "deb [arch=amd64] https://repos.citusdata.com/community/debian/ jammy main" | sudo tee /etc/apt/sources.list.d/citusdata_community.list
-    wget --quiet -O - https://repos.citusdata.com/community/debian/KEY.gpg | sudo apt-key add -
-}
+    # Ensure the keyrings directory exists
+    sudo mkdir -p /etc/apt/keyrings
 
-add_citus_repository() {
-    echo "Adding Citus repository with jammy as the release name..."
-    echo "deb [arch=amd64] https://repos.citusdata.com/community/debian/ jammy main" | sudo tee /etc/apt/sources.list.d/citusdata_community.list
-    # Download the GPG key directly to the trusted.gpg.d directory
-    curl -fsSL https://repos.citusdata.com/community/debian/KEY.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/citus.gpg > /dev/null
+    echo "Adding Citus GPG key..."
+    sudo curl -sSL https://repos.citusdata.com/community/gpgkey | sudo gpg --dearmor -o /etc/apt/keyrings/citusdata.gpg
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to add Citus GPG key. Check your permissions and try again."
+        return 1
+    fi
+
+    echo "Adding Citus repository to sources list..."
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/citusdata.gpg] https://repos.citusdata.com/community/ubuntu/ jammy main" | sudo tee /etc/apt/sources.list.d/citusdata_community.list > /dev/null
+
+    echo "Updating package list..."
+    sudo apt-get update -y > /dev/null
+
+    echo "Citus repository added successfully!"
 }
 
 # Install Citus extension for PostgreSQL 16
