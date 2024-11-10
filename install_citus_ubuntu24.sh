@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# Prompt and validate server type (coordinator or worker)
+prompt_server_type() {
+    while true; do
+        read -p "Is this server a coordinator (c) or worker (w)? " server_type
+        if [[ "$server_type" == "c" || "$server_type" == "w" ]]; then
+            break
+        else
+            echo "Invalid input. Please enter 'c' for coordinator or 'w' for worker."
+        fi
+    done
+}
+
 # Update package lists
 update_packages() {
     echo "Updating packages..."
@@ -40,21 +52,35 @@ install_citus_extension() {
     sudo apt install -y postgresql-16-citus-12.1
 }
 
-# Configure PostgreSQL to preload the Citus extension
+# Configure PostgreSQL to preload the Citus extension, set listen_addresses, and update pg_hba.conf
 configure_postgresql() {
-    echo "Configuring PostgreSQL to load Citus extension..."
+    echo "Configuring PostgreSQL to load Citus extension and set listen addresses..."
     sudo sed -i "s/^#shared_preload_libraries = ''/shared_preload_libraries = 'citus'/" /etc/postgresql/16/main/postgresql.conf
+    sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/16/main/postgresql.conf
+
+    # If this is a worker node, ask for the coordinator IP and configure pg_hba.conf
+    if [[ "$server_type" == "w" ]]; then
+        read -p "Enter the IP address of the coordinator node: " coordinator_ip
+        echo "Allowing connections from the coordinator in pg_hba.conf..."
+        echo "host    all             all             ${coordinator_ip}/32          md5" | sudo tee -a /etc/postgresql/16/main/pg_hba.conf
+    fi
+
+    # Restart PostgreSQL to apply changes
+    echo "Restarting PostgreSQL to apply configuration changes..."
     sudo systemctl restart postgresql
 }
 
-# Create Citus extension in PostgreSQL
+# Create Citus extension in PostgreSQL if this is a coordinator node
 create_citus_extension() {
-    echo "Creating Citus extension..."
-    sudo -u postgres psql -c "CREATE EXTENSION citus;"
+    if [[ "$server_type" == "c" ]]; then
+        echo "Creating Citus extension on the coordinator..."
+        sudo -i -u postgres psql -c "CREATE EXTENSION citus;"
+    fi
 }
 
 # Execute all functions in sequence
 main() {
+    prompt_server_type
     update_packages
     install_postgresql
     add_citus_repository
