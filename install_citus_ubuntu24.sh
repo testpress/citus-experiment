@@ -101,6 +101,7 @@ add_citus_nodes() {
 
 # Execute all functions in sequence
 main() {
+    ensure_server_type
     update_packages
     install_postgresql
     add_citus_repository
