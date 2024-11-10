@@ -78,6 +78,22 @@ create_citus_extension() {
     fi
 }
 
+# Add worker nodes to the Citus cluster on the coordinator
+add_citus_nodes() {
+    if [[ "$server_type" == "c" ]]; then
+        read -p "Enter the number of worker nodes to add: " num_nodes
+
+        for (( i=1; i<=num_nodes; i++ )); do
+            read -p "Enter IP address for worker node $i: " node_ip
+            echo "Adding worker node with IP $node_ip to the cluster..."
+            sudo -i -u postgres psql -c "SELECT * FROM master_add_node('$node_ip', 5432);"
+        done
+
+        echo "Listing all nodes in the Citus cluster:"
+        sudo -i -u postgres psql -c "SELECT * FROM citus_nodes;"
+    fi
+}
+
 # Execute all functions in sequence
 main() {
     prompt_server_type
@@ -88,6 +104,7 @@ main() {
     install_citus_extension
     configure_postgresql
     create_citus_extension
+    add_citus_nodes
     echo "Installation and setup completed successfully!"
 }
 
