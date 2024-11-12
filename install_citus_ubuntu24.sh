@@ -64,8 +64,9 @@ configure_postgresql() {
     # If this is a worker node, ask for the coordinator IP and configure pg_hba.conf
     if [[ "$server_type" == "w" ]]; then
         read -p "Enter the IP address of the coordinator node: " coordinator_ip
-        echo "Allowing connections from the coordinator in pg_hba.conf..."
-        echo "host    all             all             ${coordinator_ip}/32          md5" | sudo tee -a /etc/postgresql/16/main/pg_hba.conf
+        read -p "Choose authentication method for coordinator access ('trust' or 'md5'): " auth_method
+        echo "Allowing connections from the coordinator in pg_hba.conf with $auth_method authentication..."
+        echo "host    all             all             ${coordinator_ip}/32          ${auth_method}" | sudo tee -a /etc/postgresql/16/main/pg_hba.conf
     fi
 
     # Restart PostgreSQL to apply changes
